@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TradeLog — P&L Calendar</title>
+  <style>
+    :root{
+      --bg:#080b11;
+      --panel:#0f141d;
+      --panel2:#121925;
+      --line:#202938;
+      --text:#f3f6fb;
+      --muted:#8792a2;
+      --green:#31d08b;
+      --green-soft:rgba(49,208,139,.12);
+      --red:#ff646d;
+      --red-soft:rgba(255,100,109,.12);
+      --accent:#7c8cff;
+      --shadow:0 24px 70px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(124,140,255,.10), transparent 26%),
+        radial-gradient(circle at 85% 15%, rgba(49,208,139,.06), transparent 22%),
+        var(--bg);
+      color:var(--text);
+      min-height:100vh;
+    }
+    button,input{font:inherit}
+    .shell{max-width:1480px;margin:0 auto;padding:28px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;gap:16px}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:800;font-size:20px}
+    .mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#8ea0ff,#4f62e7);display:grid;place-items:center;box-shadow:0 10px 30px rgba(124,140,255,.25)}
+    .mark svg{width:22px;height:22px}
+    .top-actions{display:flex;gap:10px;align-items:center}
+    .ghost,.primary,.month-btn,.icon-btn{
+      border:1px solid var(--line);background:#111722;color:var(--text);border-radius:12px;padding:10px 14px;cursor:pointer;transition:.18s ease;
+    }
+    .ghost:hover,.month-btn:hover,.icon-btn:hover{border-color:#334057;background:#161d29}
+    .primary{border:0;background:linear-gradient(135deg,#7f90ff,#586be8);font-weight:700;box-shadow:0 10px 24px rgba(93,111,237,.24)}
+    .primary:hover{transform:translateY(-1px)}
+
+    .hero{display:flex;justify-content:space-between;align-items:end;gap:18px;margin-bottom:20px}
+    .hero h1{font-size:34px;letter-spacing:-1.2px;margin:0 0 7px}
+    .hero p{margin:0;color:var(--muted)}
+    .month-nav{display:flex;gap:10px;align-items:center}
+    .month-label{min-width:180px;text-align:center;font-weight:700;font-size:17px}
+    .icon-btn{width:42px;height:42px;padding:0;display:grid;place-items:center;font-size:20px}
+
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+    .stat{background:linear-gradient(180deg,rgba(19,26,38,.96),rgba(14,19,28,.96));border:1px solid var(--line);border-radius:18px;padding:18px 18px 16px;box-shadow:var(--shadow)}
+    .stat-label{color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+    .stat-value{font-size:28px;font-weight:800;letter-spacing:-.8px}
+    .stat-sub{color:var(--muted);font-size:12px;margin-top:7px}
+
+    .layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px}
+    .card{background:linear-gradient(180deg,rgba(16,22,32,.98),rgba(12,17,25,.98));border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow)}
+    .calendar-card{padding:16px}
+    .weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;padding:0 4px 8px;color:#6f7a8b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+    .weekdays div{text-align:center;padding:9px 0}
+    .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+    .day{
+      min-height:124px;border:1px solid #1d2634;background:#0e141d;border-radius:14px;padding:12px;cursor:pointer;position:relative;overflow:hidden;transition:.18s ease;
+    }
+    .day:hover{border-color:#36435a;transform:translateY(-1px);background:#111823}
+    .day.muted{opacity:.34;cursor:default}
+    .day.today{outline:1px solid rgba(124,140,255,.85);box-shadow:inset 0 0 0 1px rgba(124,140,255,.15)}
+    .day.green{background:linear-gradient(180deg,rgba(49,208,139,.10),rgba(14,20,29,1));border-color:rgba(49,208,139,.22)}
+    .day.red{background:linear-gradient(180deg,rgba(255,100,109,.10),rgba(14,20,29,1));border-color:rgba(255,100,109,.22)}
+    .day-num{font-weight:700;color:#c7d0dd;font-size:13px}
+    .day-pnl{font-weight:800;font-size:20px;margin-top:19px;letter-spacing:-.5px}
+    .green .day-pnl{color:var(--green)}
+    .red .day-pnl{color:var(--red)}
+    .day-note{position:absolute;bottom:10px;left:12px;right:12px;color:#718096;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    .sidebar{display:flex;flex-direction:column;gap:18px}
+    .side-card{padding:18px}
+    .side-card h3{font-size:14px;margin:0 0 16px;color:#dce2eb}
+    .week-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #1d2633;font-size:13px}
+    .week-row:last-child{border-bottom:0}
+    .week-row span:first-child{color:var(--muted)}
+    .pos{color:var(--green);font-weight:700}.neg{color:var(--red);font-weight:700}.zero{color:#adb7c5;font-weight:700}
+    .progress{height:8px;background:#161e2a;border-radius:99px;overflow:hidden;margin-top:12px}
+    .bar{height:100%;background:linear-gradient(90deg,#6f80f5,#8f9dff);width:0%;transition:.25s ease}
+    .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+    .mini{background:#0d131c;border:1px solid #1b2431;border-radius:12px;padding:12px}
+    .mini .k{font-size:11px;color:var(--muted);margin-bottom:7px}.mini .v{font-size:16px;font-weight:750}
+
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:20px;z-index:30;backdrop-filter:blur(6px)}
+    .modal{width:100%;max-width:430px;background:#111824;border:1px solid #283447;border-radius:20px;padding:22px;box-shadow:0 30px 100px rgba(0,0,0,.6)}
+    .modal-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.modal h2{font-size:20px;margin:0}.close{background:transparent;border:0;color:#94a0b0;font-size:24px;cursor:pointer}
+    .field{margin-bottom:14px}.field label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px}.field input{width:100%;background:#0b1119;border:1px solid #253145;color:white;border-radius:12px;padding:12px 13px;outline:none}.field input:focus{border-color:#6174f0;box-shadow:0 0 0 3px rgba(97,116,240,.12)}
+    .hint{font-size:11px;color:#6f7a89;margin-top:6px}.modal-actions{display:flex;justify-content:space-between;gap:10px;margin-top:18px}.danger{background:transparent;border:1px solid rgba(255,100,109,.35);color:#ff7a83;border-radius:12px;padding:10px 13px;cursor:pointer}.right-actions{display:flex;gap:10px}
+
+    .footer-note{color:#5f6b7b;font-size:11px;margin-top:14px;text-align:center}
+    @media(max-width:980px){.layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.sidebar{display:grid;grid-template-columns:1fr 1fr}.day{min-height:105px}}
+    @media(max-width:680px){.shell{padding:16px}.topbar,.hero{align-items:flex-start}.hero{flex-direction:column}.stats{grid-template-columns:1fr 1fr}.calendar-card{overflow-x:auto}.weekdays,.calendar{min-width:720px}.sidebar{grid-template-columns:1fr}.top-actions .ghost{display:none}.stat-value{font-size:22px}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div class="brand">
+        <div class="mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-5 3 3 7-8"/><path d="M14 7h5v5"/></svg>
+        </div>
+        TradeLog
+      </div>
+      <div class="top-actions">
+        <button class="ghost" id="exportBtn">Export CSV</button>
+        <button class="primary" id="todayBtn">Today</button>
+      </div>
+    </div>
+
+    <div class="hero">
+      <div>
+        <h1>Trading P&amp;L Calendar</h1>
+        <p>Track your daily results. Keep the process simple.</p>
+      </div>
+      <div class="month-nav">
+        <button class="icon-btn" id="prevMonth">‹</button>
+        <div class="month-label" id="monthLabel"></div>
+        <button class="icon-btn" id="nextMonth">›</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Monthly P&amp;L</div><div class="stat-value" id="monthPnl">$0.00</div><div class="stat-sub" id="monthDays">0 trading days</div></div>
+      <div class="stat"><div class="stat-label">Win Rate</div><div class="stat-value" id="winRate">0%</div><div class="stat-sub" id="winLoss">0 wins / 0 losses</div></div>
+      <div class="stat"><div class="stat-label">Best Day</div><div class="stat-value" id="bestDay">$0.00</div><div class="stat-sub" id="bestDate">—</div></div>
+      <div class="stat"><div class="stat-label">Avg Daily P&amp;L</div><div class="stat-value" id="avgPnl">$0.00</div><div class="stat-sub">Across logged trading days</div></div>
+    </div>
+
+    <div class="layout">
+      <div class="card calendar-card">
+        <div class="weekdays"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
+        <div class="calendar" id="calendar"></div>
+      </div>
+      <div class="sidebar">
+        <div class="card side-card">
+          <h3>Weekly P&amp;L</h3>
+          <div id="weeklyList"></div>
+        </div>
+        <div class="card side-card">
+          <h3>Month Summary</h3>
+          <div class="summary-grid">
+            <div class="mini"><div class="k">Profit Days</div><div class="v" id="profitDays">0</div></div>
+            <div class="mini"><div class="k">Loss Days</div><div class="v" id="lossDays">0</div></div>
+            <div class="mini"><div class="k">Gross Profit</div><div class="v pos" id="grossProfit">$0</div></div>
+            <div class="mini"><div class="k">Gross Loss</div><div class="v neg" id="grossLoss">$0</div></div>
+          </div>
+          <div style="margin-top:18px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between"><span>Green-day ratio</span><span id="ratioText">0%</span></div>
+          <div class="progress"><div class="bar" id="ratioBar"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="footer-note">Your trades are stored locally in this browser. No account required.</div>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+      <div class="modal-top"><h2 id="modalDate">Add P&amp;L</h2><button class="close" id="closeModal">×</button></div>
+      <div class="field"><label>Daily P&amp;L ($)</label><input type="number" step="0.01" id="pnlInput" placeholder="e.g. 425 or -180"><div class="hint">Positive = winning day, negative = losing day.</div></div>
+      <div class="field"><label>Note (optional)</label><input type="text" id="noteInput" maxlength="80" placeholder="e.g. NQ — clean VAH rejection"></div>
+      <div class="modal-actions">
+        <button class="danger" id="deleteBtn">Delete</button>
+        <div class="right-actions"><button class="ghost" id="cancelBtn">Cancel</button><button class="primary" id="saveBtn">Save Day</button></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const KEY='tradelog_entries_v1';
+  const entries=JSON.parse(localStorage.getItem(KEY)||'{}');
+  let view=new Date(); view.setDate(1);
+  let selectedKey=null;
+  const $=id=>document.getElementById(id);
+  const money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:2}).format(n||0);
+  const shortMoney=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n||0);
+  const keyOf=(y,m,d)=>`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const save=()=>localStorage.setItem(KEY,JSON.stringify(entries));
+  const cls=n=>n>0?'pos':n<0?'neg':'zero';
+
+  function render(){
+    const y=view.getFullYear(),m=view.getMonth();
+    $('monthLabel').textContent=view.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    const first=new Date(y,m,1), last=new Date(y,m+1,0);
+    const start=first.getDay(), days=last.getDate();
+    const cal=$('calendar'); cal.innerHTML='';
+    for(let i=0;i<start;i++){
+      const d=document.createElement('div');d.className='day muted';cal.appendChild(d);
+    }
+    const today=new Date();
+    for(let d=1;d<=days;d++){
+      const k=keyOf(y,m,d), e=entries[k];
+      const cell=document.createElement('div'); cell.className='day';
+      if(e && +e.pnl>0) cell.classList.add('green');
+      if(e && +e.pnl<0) cell.classList.add('red');
+      if(today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d)cell.classList.add('today');
+      cell.innerHTML=`<div class="day-num">${d}</div>${e?`<div class="day-pnl">${money(+e.pnl)}</div>${e.note?`<div class="day-note">${escapeHtml(e.note)}</div>`:''}`:''}`;
+      cell.onclick=()=>openModal(k,new Date(y,m,d));
+      cal.appendChild(cell);
+    }
+    computeStats(y,m,days,start);
+  }
+
+  function computeStats(y,m,days,startDow){
+    const monthEntries=[];
+    for(let d=1;d<=days;d++){
+      const k=keyOf(y,m,d); if(entries[k] && entries[k].pnl!=='' && entries[k].pnl!=null) monthEntries.push({date:new Date(y,m,d),...entries[k],pnl:+entries[k].pnl});
+    }
+    const vals=monthEntries.map(e=>e.pnl); const total=vals.reduce((a,b)=>a+b,0);
+    const wins=vals.filter(v=>v>0), losses=vals.filter(v=>v<0);
+    setMoneyColor($('monthPnl'),total,true);
+    $('monthDays').textContent=`${vals.length} trading day${vals.length===1?'':'s'}`;
+    const wr=vals.length?Math.round((wins.length/vals.length)*100):0;
+    $('winRate').textContent=`${wr}%`; $('winLoss').textContent=`${wins.length} win${wins.length===1?'':'s'} / ${losses.length} loss${losses.length===1?'':'es'}`;
+    const best=monthEntries.length?monthEntries.reduce((a,b)=>a.pnl>b.pnl?a:b):null;
+    setMoneyColor($('bestDay'),best?best.pnl:0,true); $('bestDate').textContent=best?best.date.toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
+    setMoneyColor($('avgPnl'),vals.length?total/vals.length:0,true);
+    $('profitDays').textContent=wins.length; $('lossDays').textContent=losses.length;
+    $('grossProfit').textContent=shortMoney(wins.reduce((a,b)=>a+b,0)); $('grossLoss').textContent=shortMoney(losses.reduce((a,b)=>a+b,0));
+    $('ratioText').textContent=`${wr}%`; $('ratioBar').style.width=`${wr}%`;
+
+    const weeks=[]; let w=1, weekTotal=0, count=0;
+    for(let d=1;d<=days;d++){
+      const dow=new Date(y,m,d).getDay(); const e=entries[keyOf(y,m,d)]; if(e) weekTotal += +e.pnl||0;
+      count++;
+      if(dow===6 || d===days){ weeks.push({w,total:weekTotal}); w++; weekTotal=0; count=0; }
+    }
+    $('weeklyList').innerHTML=weeks.map(x=>`<div class="week-row"><span>Week ${x.w}</span><span class="${cls(x.total)}">${money(x.total)}</span></div>`).join('');
+  }
+
+  function setMoneyColor(el,val,big=false){el.textContent=money(val);el.style.color=val>0?'var(--green)':val<0?'var(--red)':'var(--text)';}
+  function escapeHtml(s){return s.replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]));}
+  function openModal(k,date){selectedKey=k;$('modalDate').textContent=date.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});$('pnlInput').value=entries[k]?.pnl??'';$('noteInput').value=entries[k]?.note??'';$('deleteBtn').style.visibility=entries[k]?'visible':'hidden';$('modalBackdrop').style.display='flex';setTimeout(()=>$('pnlInput').focus(),50)}
+  function closeModal(){$('modalBackdrop').style.display='none';selectedKey=null}
+  $('saveBtn').onclick=()=>{if(!selectedKey)return;const raw=$('pnlInput').value.trim(); if(raw===''){delete entries[selectedKey]} else {entries[selectedKey]={pnl:+raw,note:$('noteInput').value.trim()}} save();closeModal();render();}
+  $('deleteBtn').onclick=()=>{if(selectedKey){delete entries[selectedKey];save();closeModal();render()}}
+  $('cancelBtn').onclick=closeModal;$('closeModal').onclick=closeModal;$('modalBackdrop').onclick=e=>{if(e.target.id==='modalBackdrop')closeModal()}
+  $('prevMonth').onclick=()=>{view.setMonth(view.getMonth()-1);render()}; $('nextMonth').onclick=()=>{view.setMonth(view.getMonth()+1);render()};
+  $('todayBtn').onclick=()=>{view=new Date();view.setDate(1);render()};
+  $('exportBtn').onclick=()=>{const rows=[['Date','PnL','Note'],...Object.keys(entries).sort().map(k=>[k,entries[k].pnl,entries[k].note||''])];const csv=rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='tradelog-export.csv';a.click();URL.revokeObjectURL(a.href)};
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal(); if(e.key==='Enter'&&$('modalBackdrop').style.display==='flex')$('saveBtn').click();});
+  render();
+</script>
+</body>
+</html>
